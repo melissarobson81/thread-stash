@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Melissa's Thread Stash</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -146,8 +148,10 @@ hr.div{border:none;border-top:1px solid var(--border);margin:2rem 0}
       <div id="lastBackupNote" class="backup-note"></div>
     </div>
     <div class="top-actions">
-      <button class="btn" onclick="exportData()">Export</button>
-      <button class="btn" onclick="triggerImport()">Import</button>
+      <button class="btn btn-accent" onclick="driveSave()" id="driveSaveBtn">Save to Drive</button>
+      <button class="btn" onclick="driveLoad()" id="driveLoadBtn">Load from Drive</button>
+      <button class="btn" onclick="exportData()" title="Download a local backup file">Local backup</button>
+      <button class="btn" onclick="triggerImport()" title="Restore from a local backup file">Local restore</button>
       <button class="btn" onclick="resetToDefaults()" title="Clear all data and reload your original thread list">Reset</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     </div>
@@ -435,7 +439,152 @@ function saveState(){
 }
 
 const BACKUP_KEY = 'threadStash_lastBackup';
+const DRIVE_FILE_NAME = 'thread_stash_backup.json';
+const GAPI_CLIENT_ID = '521280393455-3j821g23hljo977bjigto6aodr8pr0im.apps.googleusercontent.com';
+const GAPI_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+let gapiReady = false;
+let gisReady = false;
+let tokenClient = null;
+let driveAccessToken = null;
+
+// ── Google API initialisation ──────────────────────────
+function initGapi(){
+  gapi.load('client', async ()=>{
+    await gapi.client.init({});
+    await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+    gapiReady = true;
+    updateDriveButtons();
+  });
+}
+
+function initGis(){
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GAPI_CLIENT_ID,
+    scope: GAPI_SCOPE,
+    callback: async (resp)=>{
+      if(resp.error){ console.error('Auth error:', resp); return; }
+      driveAccessToken = resp.access_token;
+      gapi.client.setToken({access_token: driveAccessToken});
+      updateDriveButtons();
+      // If a pending action was queued, run it now
+      if(pendingDriveAction){
+        const action = pendingDriveAction;
+        pendingDriveAction = null;
+        action();
+      }
+    }
+  });
+  gisReady = true;
+  updateDriveButtons();
+}
+
+let pendingDriveAction = null;
+
+function ensureAuth(action){
+  if(driveAccessToken){
+    action();
+  } else {
+    pendingDriveAction = action;
+    tokenClient.requestAccessToken({prompt:'consent'});
+  }
+}
+
+function updateDriveButtons(){
+  const saveBtn = document.getElementById('driveSaveBtn');
+  const loadBtn = document.getElementById('driveLoadBtn');
+  if(!saveBtn||!loadBtn) return;
+  const ready = gapiReady && gisReady;
+  saveBtn.disabled = !ready;
+  loadBtn.disabled = !ready;
+  saveBtn.title = ready ? 'Save to Google Drive' : 'Connecting to Google…';
+  loadBtn.title = ready ? 'Load from Google Drive' : 'Connecting to Google…';
+}
+
+// ── Find or create the backup file in Drive ────────────
+async function getDriveFileId(){
+  const res = await gapi.client.drive.files.list({
+    q: `name='${DRIVE_FILE_NAME}' and trashed=false`,
+    spaces: 'drive',
+    fields: 'files(id,name)'
+  });
+  const files = res.result.files;
+  return files && files.length > 0 ? files[0].id : null;
+}
+
+// ── Save to Drive ──────────────────────────────────────
+async function performDriveSave(){
+  const content = JSON.stringify(state, null, 2);
+  const blob = new Blob([content], {type:'application/json'});
+
+  try{
+    const fileId = await getDriveFileId();
+    if(fileId){
+      // Update existing file
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method:'PATCH',
+        headers:{'Authorization':'Bearer '+driveAccessToken,'Content-Type':'application/json'},
+        body: content
+      });
+    } else {
+      // Create new file
+      const meta = {name: DRIVE_FILE_NAME, mimeType:'application/json'};
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file', blob);
+      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method:'POST',
+        headers:{'Authorization':'Bearer '+driveAccessToken},
+        body: form
+      });
+    }
+    recordBackupTimestamp();
+    alert('✓ Saved to Google Drive');
+  } catch(err){
+    console.error(err);
+    alert('Drive save failed: ' + err.message + '\n\nTry using Local backup instead.');
+  }
+}
+
+function driveSave(){
+  if(!gapiReady||!gisReady){ alert('Still connecting to Google — please wait a moment and try again.'); return; }
+  ensureAuth(performDriveSave);
+}
+
+// ── Load from Drive ────────────────────────────────────
+async function performDriveLoad(){
+  try{
+    const fileId = await getDriveFileId();
+    if(!fileId){
+      alert('No backup file found in your Google Drive yet. Save to Drive first to create one.');
+      return;
+    }
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers:{'Authorization':'Bearer '+driveAccessToken}
+    });
+    const imported = await res.json();
+    if(!imported.threads) throw new Error('File does not look like a valid Thread Stash backup.');
+    if(confirm('Replace all current data with the backup from Google Drive?')){
+      state = imported;
+      if(!state.beads) state.beads=[];
+      if(!state.nextBeadId) state.nextBeadId=8;
+      saveState();
+      recordBackupTimestamp();
+      renderAll();
+      alert('✓ Loaded from Google Drive');
+    }
+  } catch(err){
+    console.error(err);
+    alert('Drive load failed: ' + err.message + '\n\nTry using Local restore instead.');
+  }
+}
+
+function driveLoad(){
+  if(!gapiReady||!gisReady){ alert('Still connecting to Google — please wait a moment and try again.'); return; }
+  ensureAuth(performDriveLoad);
+}
+
+// ── Local backup / restore (kept as fallback) ──────────
 function formatBackupDate(iso){
   const d = new Date(iso);
   const dateStr = d.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
@@ -447,7 +596,7 @@ function renderBackupNote(){
   const el = document.getElementById('lastBackupNote');
   const iso = localStorage.getItem(BACKUP_KEY);
   if(!iso){
-    el.textContent = 'No backup yet — use Export to save a copy';
+    el.textContent = 'No backup yet — use Save to Drive or Local backup';
     el.classList.add('stale');
     return;
   }
@@ -492,6 +641,17 @@ function importData(evt){
   reader.readAsText(file);
   evt.target.value='';
 }
+
+// Initialise Google APIs once their scripts load
+window.addEventListener('load', ()=>{
+  const gapiInterval = setInterval(()=>{
+    if(typeof gapi !== 'undefined'){ clearInterval(gapiInterval); initGapi(); }
+  }, 100);
+  const gisInterval = setInterval(()=>{
+    if(typeof google !== 'undefined' && google.accounts){ clearInterval(gisInterval); initGis(); }
+  }, 100);
+});
+
 
 let activeWipId = null;
 let activeBrand = 'all';
