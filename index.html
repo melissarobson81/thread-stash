@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Robson Family Meal Planner</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #F7F6F2;
+    --surface: #FFFFFF;
+    --surface2: #F0EFE9;
+    --border: #E2E0D8;
+    --border2: #D0CECC;
+    --text: #1C1B18;
+    --text2: #5C5A54;
+    --text3: #9A9890;
+    --accent: #3D6B4F;
+    --accent-light: #E6F0EA;
+    --accent-border: #A8C9B4;
+    --danger: #B33A2A;
+    --danger-light: #FAECE7;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  button:hover { background: var(--surface2); border-color: var(--border2); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #2f5340; }
+  button.danger { color: var(--danger); border-color: #f0b3a8; background: var(--surface); }
+  button.danger:hover { background: var(--danger-light); }
+
+  input, select {
+    font-family: inherit;
+    font-size: 13px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    width: 100%;
+    transition: border-color .12s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input::placeholder { color: var(--text3); }
+
+  /* ── Layout ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: var(--shadow);
+  }
+  .logo {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-icon { font-size: 20px; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  #statusMsg {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+  .backup-indicator {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--surface2);
+    white-space: nowrap;
+  }
+  .backup-indicator.stale {
+    color: #9A5B1F;
+    background: #FAEEDA;
+  }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
+
+  /* ── Week toolbar ── */
+  .week-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .week-toolbar label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .week-nav {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .week-nav button {
+    width: 30px; height: 30px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; border-radius: var(--radius-sm);
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text2); cursor: pointer; line-height: 1;
+  }
+  .week-nav button:hover { background: var(--surface2); }
+  #weekStart { width: auto; min-width: 150px; }
+
+  /* ── Week grid ── */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .day-col { display: flex; flex-direction: column; gap: 10px; }
+  .day-header {
+    text-align: center;
+    padding: 6px 4px 4px;
+    height: 46px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .day-name {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text2);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .day-date {
+    font-size: 11px;
+    color: var(--text3);
+    line-height: 1;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .day-header.today .day-name { color: var(--accent); }
+  .day-header.today .day-date {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 8px;
+  }
+
+  .slot {
+    height: auto;
+    min-height: 200px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    transition: border-color .12s, background .12s, box-shadow .12s;
+  }
+  .slot:hover { border-color: var(--border2); }
+  .slot.drag-over { border-color: var(--accent); background: var(--accent-light); border-style: solid; }
+  .slot-empty-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    text-align: center;
+    line-height: 1.6;
+  }
+  /* Invisible square spacer so empty slots match filled slot height */
+  .slot-spacer {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    flex-shrink: 0;
+  }
+  .slot-empty-body {
+    min-height: 54px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+  }
+  .slot.filled {
+    border-style: solid;
+    border-color: var(--border);
+    padding: 0;
+    cursor: grab;
+    box-shadow: var(--shadow);
+  }
+  .slot.filled:active { cursor: grabbing; }
+  .slot.filled:hover { box-shadow: var(--shadow-md); border-color: var(--border2); }
+  .slot-inner { width: 100%; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .slot-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; flex-shrink: 0; }
+  .slot-body { padding: 6px 7px 6px; display: flex; flex-direction: column; justify-content: space-between; min-height: 54px; }
+  .slot-name { font-size: 10px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 5px; }
+  .slot-badge-wrap { min-height: 18px; display: flex; align-items: center; }
+  .slot-badge {
+    font-size: 9px;
+    font-weight: 500;
+    padding: 1px 6px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+  .slot-remove {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.45);
+    border: none;
+    color: #fff;
+    font-size: 10px;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity .15s;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+  .slot:hover .slot-remove { opacity: 1; }
+
+  /* ── Section heading ── */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  .filter-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+  .pill {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 11px;
+    border-radius: 20px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    transition: all .12s;
+    user-select: none;
+  }
+  .pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .pill:hover:not(.active) { background: var(--surface2); }
+
+  /* ── Recipe shelf ── */
+  .recipe-shelf {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .recipe-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: grab;
+    user-select: none;
+    transition: transform .1s, box-shadow .1s;
+    position: relative;
+    box-shadow: var(--shadow);
+  }
+  .recipe-card:active { cursor: grabbing; }
+  .recipe-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .recipe-card.dragging { opacity: 0.4; transform: scale(0.97); }
+  .recipe-card img { width: 100%; height: 72px; object-fit: cover; display: block; pointer-events: none; }
+  .card-body { padding: 7px 8px 8px; }
+  .card-name { font-size: 11px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 4px; }
+  .card-last { font-size: 10px; color: var(--text3); margin-bottom: 5px; line-height: 1.3; }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+  .card-tag {
+    font-size: 9px;
+    font-weight: 500;
+    padding: 1px 6px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .card-btn {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity .15s;
+    padding: 0;
+    line-height: 1;
+  }
+  .recipe-card:hover .card-btn { opacity: 1; }
+  .card-edit { top: 4px; left: 4px; background: rgba(0,0,0,0.4); color: #fff; }
+  .card-del  { top: 4px; right: 4px; background: rgba(0,0,0,0.5); color: #fff; }
+  .card-link { top: 22px; right: 4px; background: rgba(61,107,79,0.85); color: #fff; text-decoration: none; font-size: 11px; }
+  .card-link:hover { background: rgba(61,107,79,1); }
+  .slot-link {
+    position: absolute; bottom: 4px; right: 4px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(61,107,79,0.8); color: #fff;
+    font-size: 10px; text-decoration: none;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  .slot:hover .slot-link { opacity: 1; }
+
+  /* ── Panels ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
+  .form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 110px; }
+  .field label { font-size: 11px; font-weight: 500; color: var(--text2); }
+  .img-preview {
+    width: 52px; height: 52px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    object-fit: cover;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .img-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .mt-checks { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 2px; }
+  .mt-check { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); cursor: pointer; }
+  .mt-check input { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+  .form-actions { display: flex; gap: 8px; padding-top: 4px; }
+  .cat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .cat-chip {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .cat-chip-del {
+    background: none; border: none;
+    cursor: pointer; font-size: 11px;
+    padding: 0; line-height: 1;
+    opacity: 0.6;
+  }
+  .cat-chip-del:hover { opacity: 1; }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    .week-grid { grid-template-columns: repeat(7, minmax(0,1fr)); gap: 4px; }
+    .slot { height: auto; min-height: 140px; }
+    .slot-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
+    .recipe-shelf { grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); }
+  }
+
+  /* ── Print ── */
+  /* ── Shared print base ── */
+  @media print {
+    body { background: #fff; }
+    main { padding: 0; max-width: 100%; }
+    header, #statusMsg { display: none !important; }
+    .print-header { display: flex !important; }
+  }
+
+  /* ── Week grid print mode ── */
+  @media print {
+    body.print-week .shelf-toolbar,
+    body.print-week #historyPanel,
+    body.print-week .note-shelf-wrap,
+    body.print-week .panel,
+    body.print-week .recipe-shelf,
+    body.print-week .sl-panel { display: none !important; }
+    body.print-week .week-toolbar { display: flex !important; }
+    body.print-week .grid-wrapper { display: flex; margin-bottom: 0; }
+    body.print-week .week-grid { margin-bottom: 0; gap: 3px; }
+    body.print-week .day-col { gap: 3px; }
+    body.print-week .day-header { height: 30px; }
+    body.print-week .day-name { font-size: 8px; }
+    body.print-week .day-date { font-size: 8px; }
+    body.print-week .day-header.today .day-date { background: #3D6B4F; }
+    /* Fixed slot height so 3 rows fit on one landscape A4 page */
+    body.print-week .slot {
+      height: 148px !important;
+      min-height: 0 !important;
+      box-shadow: none;
+      border: 1px solid #ccc;
+      overflow: hidden;
+    }
+    body.print-week .slot-spacer { display: none; }
+    body.print-week .slot-inner { height: 100%; }
+    /* Image takes up the top portion, fixed height not square */
+    body.print-week .slot-img {
+      width: 100%;
+      height: 100px !important;
+      aspect-ratio: unset !important;
+      object-fit: cover;
+      display: block;
+      flex-shrink: 0;
+    }
+    body.print-week .slot-body { min-height: 0; padding: 3px 4px; flex: 1; }
+    body.print-week .slot-badge-wrap { min-height: 12px; }
+    body.print-week .slot-name { font-size: 7px; line-height: 1.2; margin-bottom: 2px; }
+    body.print-week .slot-badge { font-size: 6px; padding: 1px 4px; }
+    body.print-week .slot-remove { display: none; }
+    /* Empty slot label */
+    body.print-week .slot-empty-label { font-size: 7px; color: #ccc; }
+    body.print-week .slot-empty-body { min-height: 0; }
+  }
+
+  /* ── Shopping list print mode ── */
+  @media print {
+    body.print-list .week-toolbar,
+    body.print-list #historyPanel,
+    body.print-list .shelf-toolbar,
+    body.print-list .panel,
+    body.print-list .recipe-shelf,
+    body.print-list .grid-wrapper,
+    body.print-list .print-header { display: none !important; }
+    body.print-list .sl-panel { display: block !important; box-shadow: none; border: none; padding: 0; }
+    body.print-list .sl-actions { display: none !important; }
+    body.print-list .sl-item.checked { display: none !important; }
+    body.print-list .sl-progress { display: none !important; }
+    body.print-list .sl-meta { display: none !important; }
+
+    /* Title */
+    body.print-list .sl-title { font-size: 18px; margin-bottom: 12px; display: block; }
+    body.print-list .sl-header { margin-bottom: 8px; }
+
+    /* Multi-column layout — auto 2 or 3 cols depending on content */
+    body.print-list #slBody {
+      column-width: 85mm;   /* browser picks 2 cols on landscape, 3 if content fills them */
+      column-gap: 10mm;
+      column-rule: 1px solid #ddd;
+    }
+
+    /* Prevent groups breaking mid-group across columns */
+    body.print-list .sl-group {
+      break-inside: avoid;
+      margin-bottom: 10px;
+    }
+    body.print-list .sl-group-title {
+      font-size: 9px;
+      padding-bottom: 3px;
+      margin-bottom: 5px;
+    }
+
+    /* Compact items for print */
+    body.print-list .sl-item {
+      padding: 3px 2px;
+      gap: 6px;
+      cursor: default;
+    }
+    body.print-list .sl-item input[type=checkbox] { display: none; }
+    body.print-list .sl-ing-name { font-size: 11px; }
+    body.print-list .sl-ing-qty { font-size: 11px; }
+    body.print-list .sl-item-recipes { font-size: 9px; }
+  }
+
+  /* ── Shopping list ── */
+  .sl-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .sl-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .sl-title { font-size: 15px; font-weight: 600; color: var(--text); flex: 1; }
+  .sl-meta { font-size: 12px; color: var(--text3); }
+  .sl-actions { display: flex; gap: 8px; }
+  .sl-empty { font-size: 13px; color: var(--text3); padding: 12px 0; }
+  .sl-group { margin-bottom: 18px; }
+  .sl-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text3);
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sl-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 6px;
+    border-radius: var(--radius-sm);
+    transition: background .1s;
+    cursor: pointer;
+  }
+  .sl-item:hover { background: var(--surface2); }
+  .sl-item input[type=checkbox] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--accent);
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+  .sl-item-label {
+    font-size: 14px;
+    color: var(--text);
+    flex: 1;
+    line-height: 1.4;
+    transition: color .15s;
+  }
+  .sl-ing-name {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .sl-ing-dash {
+    color: var(--text3);
+    margin: 0 3px;
+  }
+  .sl-ing-qty {
+    color: var(--text3);
+    font-weight: 400;
+  }
+  .sl-item.checked .sl-ing-name,
+  .sl-item.checked .sl-ing-dash,
+  .sl-item.checked .sl-ing-qty {
+    color: var(--text3);
+    text-decoration: line-through;
+  }
+  .sl-item-recipes {
+    font-size: 11px;
+    color: var(--text3);
+    flex-shrink: 0;
+  }
+  .sl-item.checked .sl-item-label {
+    color: var(--text3);
+  }
+  .sl-progress {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .sl-progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .sl-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width .3s;
+  }
+
+  /* Ingredient editor in recipe form */
+  .ing-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+  .ing-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .ing-row span { flex: 1; }
+  .ing-row button {
+    padding: 1px 6px;
+    font-size: 11px;
+    border: none;
+    background: none;
+    color: var(--text3);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .ing-row button:hover { color: var(--danger); background: var(--danger-light); }
+  .ing-add-row { display: flex; gap: 6px; }
+  .ing-add-row input { flex: 1; height: 32px; font-size: 12px; }
+
+  /* Print additions */
+  @media print {
+    .sl-item input[type=checkbox] { display: none; }
+    .sl-item.checked { display: none; }
+    .sl-progress { display: none; }
+    .sl-actions { display: none; }
+    .no-print { display: none !important; }
+  }
+
+  /* ── Shelf toolbar ── */
+  .shelf-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .shelf-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .shelf-search {
+    flex: 1;
+    min-width: 160px;
+    height: 34px;
+    font-size: 13px;
+    padding: 0 10px 0 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239A9890' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;
+    color: var(--text);
+    transition: border-color .12s;
+  }
+  .shelf-search:focus { outline: none; border-color: var(--accent); }
+  .shelf-row2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .filter-group-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    white-space: nowrap;
+    margin-right: 2px;
+  }
+  .filter-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+  .sort-select {
+    height: 28px;
+    font-size: 11px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+  }
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .view-toggle button {
+    border: none;
+    border-radius: 0;
+    padding: 4px 8px;
+    font-size: 13px;
+    background: var(--surface);
+    color: var(--text3);
+    cursor: pointer;
+  }
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+  .results-count { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+  /* ── Multi-cat chips in form ── */
+  .cat-checks { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+  .cat-check-pill {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all .12s;
+    user-select: none;
+  }
+  .cat-check-pill input { display: none; }
+  .cat-check-pill.selected { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+
+  /* ── Compact list view ── */
+  .recipe-shelf.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .recipe-shelf.list-view .recipe-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    height: 52px;
+    transform: none !important;
+  }
+  .recipe-shelf.list-view .recipe-card img {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  }
+  .recipe-shelf.list-view .card-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .recipe-shelf.list-view .card-name {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin: 0;
+  }
+  .recipe-shelf.list-view .card-last { display: none; }
+  .recipe-shelf.list-view .card-tags { flex-wrap: nowrap; gap: 3px; flex-shrink: 0; }
+  .recipe-shelf.list-view .card-btn { top: 50%; transform: translateY(-50%); }
+  .recipe-shelf.list-view .card-edit { left: 56px; }
+  .recipe-shelf.list-view .card-del { right: 6px; }
+
+  /* ── Meal row labels ── */
+  .grid-wrapper {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 32px;
+  }
+  .meal-row-labels {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-top: 46px; /* align with day headers */
+  }
+  .meal-row-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    flex: 1;
+    user-select: none;
+  }
+  /* Remove bottom margin from week-grid since wrapper handles it */
+  .grid-wrapper .week-grid { margin-bottom: 0; }
+
+
+  /* ── History panel ── */
+  .history-week { margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .history-week-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--surface2);
+    cursor: pointer; user-select: none;
+    font-size: 13px; font-weight: 600; color: var(--text);
+  }
+  .history-week-header:hover { background: var(--border); }
+  .history-toggle { margin-left: auto; font-size: 11px; color: var(--text3); }
+  .history-week-body { display: none; padding: 12px 14px; }
+  .history-week-body.open { display: block; }
+  .history-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(7, minmax(0,1fr));
+    gap: 4px;
+    font-size: 10px;
+  }
+  .hg-corner { }
+  .hg-day { font-weight: 600; text-align: center; color: var(--text2); padding: 3px 0; font-size: 10px; }
+  .hg-meal-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); display: flex; align-items: center; }
+  .hg-cell {
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    min-height: 36px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    text-align: center;
+  }
+  .hg-cell.filled { background: var(--surface); border: 1px solid var(--border); }
+  .hg-cell img { width: 100%; height: 28px; object-fit: cover; display: block; flex-shrink: 0; }
+  .hg-cell-name { font-size: 8px; color: var(--text2); padding: 2px 3px; line-height: 1.2; }
+  .hg-cell.empty { background: transparent; border: 1px dashed var(--border); }
+  .history-empty { font-size: 13px; color: var(--text3); padding: 16px 0; text-align: center; }
+
+  /* ── Note cards on shelf ── */
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 10px;
+    cursor: grab;
+    user-select: none;
+    position: relative;
+    box-shadow: var(--shadow);
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform .1s, box-shadow .1s;
+  }
+  .note-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .note-card:active { cursor: grabbing; }
+  .note-card.dragging { opacity: .4; }
+  .note-card-label { display: none; }
+  .note-card-text {
+    font-size: 11px; font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    text-align: center;
+    word-break: break-word;
+  }
+  .note-card-del {
+    position: absolute; top: 4px; right: 4px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(0,0,0,0.25); border: none;
+    cursor: pointer; color: #3D380A; font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  .note-card:hover .note-card-del { opacity: 1; }
+  .note-add-row { display: flex; gap: 6px; margin-top: 6px; }
+  .note-add-row input { flex: 1; height: 32px; font-size: 12px; }
+
+  /* Note shelf section */
+  .note-shelf-wrap {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .note-shelf-title {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .07em;
+    color: var(--text3); margin-bottom: 8px;
+  }
+  .note-shelf-cards {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+
+  /* Filled note slot */
+  .slot.note-filled {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: grab;
+  }
+  .slot.note-filled:active { cursor: grabbing; }
+  .slot-note-inner {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px 8px; text-align: center;
+  }
+  .slot-note-icon { display: none; }
+  .slot-note-text {
+    font-size: 10px; font-weight: 600;
+    color: var(--text); line-height: 1.3;
+  }
+
+  /* Week notes area */
+  .week-notes-wrap {
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .week-notes-label {
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .07em;
+    color: var(--text3); white-space: nowrap;
+    padding-top: 10px;
+  }
+  .week-notes-box {
+    flex: 1;
+    min-height: 40px;
+    max-height: 100px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    resize: vertical;
+    line-height: 1.5;
+    transition: border-color .12s;
+  }
+  .week-notes-box:focus { outline: none; border-color: var(--accent); border-style: solid; }
+  .week-notes-box::placeholder { color: var(--text3); }
+
+  @media print {
+    body.print-week .note-shelf-wrap { display: none !important; }
+    body.print-week .print-notes-line {
+      display: flex !important;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 8px;
+    }
+    body.print-week .print-notes-label {
+      font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .07em;
+      color: #999; white-space: nowrap; flex-shrink: 0;
+    }
+    body.print-week .print-notes-rule {
+      flex: 1;
+      border: none;
+      border-bottom: 1px solid #bbb;
+      height: 0;
+    }
+  }
+
+  /* ── Drive status ── */
+  #driveStatus { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="logo-icon">🥗</span> Robson Family Meal Planner</div>
+  <div class="header-right">
+    <span id="statusMsg"></span>
+    <span id="backupIndicator" class="backup-indicator"></span>
+    <button id="exportBtn">⬇ Export data</button>
+    <button id="importBtn">⬆ Import data</button>
+    <button id="driveSignInBtn" style="background:var(--accent);color:#fff;border-color:var(--accent);">☁ Connect Drive</button>
+    <button id="driveSaveBtn" style="display:none">☁ Save to Drive</button>
+    <button id="driveLoadBtn" style="display:none">☁ Load from Drive</button>
+    <span id="driveStatus" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span>
+    <input type="file" id="importFile" accept=".json" style="display:none"/>
+    <button id="historyBtn">📅 History</button>
+    <button id="shoppingBtn">🛒 Shopping list</button>
+    <button id="printBtn">🖨 Print week</button>
+    <button class="danger" id="clearBtn">🗑 Clear week</button>
+  </div>
+</header>
+
+<main>
+  <!-- Week toolbar -->
+  <div class="week-toolbar">
+    <label for="weekStart">Week beginning</label>
+    <div class="week-nav">
+      <button type="button" id="weekJumpPrev" title="Previous week" class="no-print" style="font-size:13px;opacity:.6;">«</button>
+      <button type="button" id="weekPrev" title="Back 1 day" class="no-print">‹</button>
+      <input type="date" id="weekStart"/>
+      <button type="button" id="weekNext" title="Forward 1 day" class="no-print">›</button>
+      <button type="button" id="weekJumpNext" title="Next week" class="no-print" style="font-size:13px;opacity:.6;">»</button>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="print-header" style="display:none;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:22px;">🥗</span><span style="font-size:18px;font-weight:600;color:#3D6B4F;letter-spacing:-0.3px;">Robson Family Meal Planner</span></div>
+    <div id="printWeekLabel" style="font-size:13px;color:#5C5A54;font-weight:500;"></div>
+  </div>
+  <div class="grid-wrapper">
+    <div class="meal-row-labels">
+      <div class="meal-row-label">Breakfast</div>
+      <div class="meal-row-label">Lunch</div>
+      <div class="meal-row-label">Dinner</div>
+    </div>
+    <div class="week-grid" id="weekGrid" style="flex:1;margin-bottom:0;"></div>
+  </div>
+
+  <!-- Note cards shelf -->
+  <div class="note-shelf-wrap" id="noteShelfWrap">
+    <div class="note-shelf-title">Note cards — drag onto a day</div>
+    <div class="note-shelf-cards" id="noteShelf"></div>
+    <div class="note-add-row">
+      <input type="text" id="noteInput" placeholder="e.g. Dinner at Mum's house"/>
+      <button id="noteAddBtn" style="flex-shrink:0;padding:0 12px;height:32px;font-size:12px;">+ Add note</button>
+    </div>
+  </div>
+  <div class="print-notes-line" style="display:none;">
+    <span class="print-notes-label">Notes</span>
+    <div class="print-notes-rule"></div>
+  </div>
+
+  <!-- Shelf toolbar -->
+  <div class="shelf-toolbar">
+    <div class="shelf-row1">
+      <span class="section-title">Recipe shelf</span>
+      <div style="position:relative;flex:1;min-width:160px;">
+        <input class="shelf-search" type="text" id="shelfSearch" placeholder="Search recipes…" style="width:100%;padding-right:28px;"/>
+        <button id="searchClear" title="Clear search" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:0;line-height:1;display:none;">✕</button>
+      </div>
+      <select class="sort-select" id="sortSelect">
+        <option value="name">A – Z</option>
+        <option value="recent">Recently planned</option>
+        <option value="unplanned">Never planned first</option>
+      </select>
+      <div class="view-toggle">
+        <button id="viewGrid" class="active" title="Grid view">⊞</button>
+        <button id="viewList" title="List view">☰</button>
+      </div>
+      <button id="toggleAdd">+ Add recipe</button>
+      <button id="toggleCats">🏷 Categories</button>
+    </div>
+    <div class="shelf-row2" id="filterRow">
+      <span class="filter-group-label">Meal</span>
+      <div id="mtFilterPills"></div>
+      <div class="filter-divider"></div>
+      <span class="filter-group-label">Category</span>
+      <div id="catFilterPills"></div>
+      <span class="results-count" id="resultsCount"></span>
+      <button id="clearFiltersBtn" style="font-size:11px;padding:2px 10px;display:none;">✕ Clear filters</button>
+    </div>
+  </div>
+
+  <!-- Add / edit panel -->
+  <div class="panel" id="addPanel" style="display:none">
+    <div class="panel-title" id="panelTitle">New recipe</div>
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="field" style="flex:2">
+        <label>Name</label>
+        <input id="rName" type="text" placeholder="e.g. Lemon chicken"/>
+      </div>
+      <div class="field" style="flex:2">
+        <label>Image URL (optional)</label>
+        <input id="rImg" type="text" placeholder="https://..."/>
+      </div>
+      <div class="field" style="flex:2">
+        <label>Recipe link (optional)</label>
+        <input id="rUrl" type="text" placeholder="https://... or upnote://..."/>
+      </div>
+      <div class="field" style="flex:2">
+        <label>Categories (select all that apply)</label>
+        <div class="cat-checks" id="rCatChecks"></div>
+      </div>
+      <div class="img-preview" id="imgPreview">🍽</div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:6px;">Meal types</div>
+      <div class="mt-checks" id="mtChecks"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:6px;">Ingredients</div>
+      <div class="ing-list" id="ingList"></div>
+      <div class="ing-add-row">
+        <input id="ingInput" type="text" placeholder="e.g. 2 chicken breasts, 100g pasta, 1 clove garlic"/>
+        <button id="ingAddBtn" style="flex-shrink:0;white-space:nowrap;padding:0 12px;height:32px;">+ Add</button>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="primary" id="saveRecipeBtn">Save recipe</button>
+      <button id="cancelEditBtn" style="display:none">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Categories panel -->
+  <div class="panel" id="catPanel" style="display:none">
+    <div class="panel-title">Manage categories</div>
+    <div class="form-row">
+      <div class="field">
+        <label>New category</label>
+        <input id="catName" type="text" placeholder="e.g. Fish"/>
+      </div>
+      <button class="primary" id="addCatBtn" style="flex-shrink:0;align-self:flex-end">Add</button>
+    </div>
+    <div class="cat-chips" id="catChips"></div>
+  </div>
+
+  <!-- Shopping list panel -->
+  <div class="sl-panel" id="slPanel" style="display:none">
+    <div class="sl-header">
+      <span class="sl-title">🛒 Shopping list</span>
+      <span class="sl-meta" id="slMeta"></span>
+      <div class="sl-actions">
+        <button id="slUncheckAll">Uncheck all</button>
+        <button id="slPrint">🖨 Print list</button>
+        <button id="slClose">✕ Close</button>
+      </div>
+    </div>
+    <div id="slBody"></div>
+  </div>
+
+  <!-- History panel -->
+  <div class="panel" id="historyPanel" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <span style="font-size:14px;font-weight:600;color:var(--text);flex:1;">📅 Meal history</span>
+      <button id="historyClose">✕ Close</button>
+    </div>
+    <div id="historyBody"></div>
+  </div>
+
+  <!-- Recipe shelf -->
+  <div class="recipe-shelf" id="recipeShelf"></div>
+</main>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MEALS = ['Breakfast','Lunch','Dinner'];
+const FALLBACK = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=70';
+const LS_KEY = 'mealplanner-v1';
+
+const CAT_COLORS = [
+  {bg:'#EEEDFE',border:'#AFA9EC',text:'#3C3489'},
+  {bg:'#E1F5EE',border:'#5DCAA5',text:'#085041'},
+  {bg:'#FAECE7',border:'#F0997B',text:'#712B13'},
+  {bg:'#FBEAF0',border:'#ED93B1',text:'#72243E'},
+  {bg:'#E6F1FB',border:'#85B7EB',text:'#0C447C'},
+  {bg:'#EAF3DE',border:'#97C459',text:'#27500A'},
+  {bg:'#FAEEDA',border:'#EF9F27',text:'#633806'},
+  {bg:'#F1EFE8',border:'#B4B2A9',text:'#444441'},
+];
+
+// ── Default data ───────────────────────────────────────────────
+const DEFAULT = {
+  recipes: [
+    {id:1,name:'Avocado toast',img:'https://images.unsplash.com/photo-1588137378633-dea1336ce1e2?w=300&q=70',category:'',categories:[],mealTypes:['Breakfast'],lastPlanned:null,ingredients:['2 slices sourdough bread','1 ripe avocado','1 lemon, juiced','Salt and pepper','Chilli flakes']},
+    {id:2,name:'Spaghetti bolognese',img:'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=300&q=70',category:'Beef',categories:['Beef'],mealTypes:['Dinner'],lastPlanned:null,ingredients:['500g beef mince','400g spaghetti','1 onion, diced','2 cloves garlic','400g canned tomatoes','2 tbsp tomato paste','Olive oil','Salt and pepper']},
+    {id:3,name:'Chicken caesar salad',img:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&q=70',category:'Chicken',categories:['Chicken'],mealTypes:['Lunch','Dinner'],lastPlanned:null,ingredients:['2 chicken breasts','1 cos lettuce','50g parmesan','Caesar dressing','Croutons']},
+    {id:4,name:'Eggs & bacon',img:'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=300&q=70',category:'Pork',categories:['Pork'],mealTypes:['Breakfast'],lastPlanned:null,ingredients:['4 eggs','6 rashers bacon','Butter','Salt and pepper']},
+    {id:5,name:'Grilled salmon',img:'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=300&q=70',category:'',categories:[],mealTypes:['Dinner'],lastPlanned:null,ingredients:['2 salmon fillets','1 lemon','Olive oil','Salt and pepper','Fresh dill']},
+    {id:6,name:'Veggie stir-fry',img:'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=300&q=70',category:'',categories:[],mealTypes:['Lunch','Dinner'],lastPlanned:null,ingredients:['2 cups mixed vegetables','2 tbsp soy sauce','1 tbsp sesame oil','2 cloves garlic','1 tsp ginger','Rice to serve']},
+    {id:7,name:'Overnight oats',img:'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=300&q=70',category:'',categories:[],mealTypes:['Breakfast'],lastPlanned:null,ingredients:['1 cup rolled oats','1 cup milk','2 tbsp chia seeds','1 tbsp honey','Fresh berries']},
+    {id:8,name:'Chicken curry',img:'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=300&q=70',category:'Chicken',categories:['Chicken'],mealTypes:['Dinner'],lastPlanned:null,ingredients:['600g chicken thighs','400ml coconut cream','2 tbsp curry paste','1 onion, diced','2 cloves garlic','Rice to serve','Fresh coriander']},
+    {id:9,name:'Greek salad',img:'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=300&q=70',category:'',categories:[],mealTypes:['Lunch'],lastPlanned:null,ingredients:['200g feta cheese','1 cucumber','2 tomatoes','1 red onion','Kalamata olives','Olive oil','Dried oregano']},
+    {id:10,name:'Beef tacos',img:'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300&q=70',category:'Beef',categories:['Beef'],mealTypes:['Dinner'],lastPlanned:null,ingredients:['500g beef mince','8 taco shells','1 onion, diced','Taco seasoning','Sour cream','Grated cheese','Salsa','Lettuce']},
+  ],
+  categories: ['Beef','Chicken','Pork'],
+  plan: {},
+  weekStart: isoMonday(),
+  nextId: 11,
+  shoppingChecked: {},
+  lastBackup: null,
+  noteCards: [],
+};
+
+// ── State ──────────────────────────────────────────────────────
+let S = JSON.parse(JSON.stringify(DEFAULT));
+let activeFilters = { cats: [], mealTypes: [] };
+let shelfSearch = '';
+let shelfSort = 'name';
+let shelfView = 'grid';
+let editingId = null;
+let dragData = null;
+let editIngredients = [];
+let slOpen = false;
+
+// ── Storage ────────────────────────────────────────────────────
+function save() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    setStatus('Saved ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    setStatus('⚠ Could not save: ' + e.message);
+  }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.recipes)) {
+        S = parsed;
+        // Migrate old day-name keys to date-based keys
+        const OLD_DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const migrateNeeded = Object.keys(S.plan).some(k => !/^\d{4}-\d{2}-\d{2}__/.test(k));
+        if (migrateNeeded && S.weekStart) {
+          const newPlan = {};
+          const dayDateMap = {};
+          for (let di = 0; di < 7; di++) {
+            const d = addDays(S.weekStart, di);
+            dayDateMap[OLD_DAY_NAMES[d.getDay()]] = isoDate(d);
+          }
+          Object.entries(S.plan).forEach(([key, recipe]) => {
+            if (/^\d{4}-\d{2}-\d{2}__/.test(key)) {
+              newPlan[key] = recipe; // already new format
+            } else {
+              const [dayName, meal] = key.split('__');
+              const date = dayDateMap[dayName];
+              if (date) newPlan[`${date}__${meal}`] = recipe;
+            }
+          });
+          S.plan = newPlan;
+          save(); // persist the migrated plan
+        }
+        setStatus('Loaded saved data ✓');
+        return;
+      }
+    }
+  } catch(e) {}
+  setStatus('Starting fresh — changes save automatically');
+}
+
+function setStatus(msg) {
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+function formatBackupTime(iso) {
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+  const timePart = d.toLocaleTimeString('en-GB', {hour:'numeric', minute:'2-digit'});
+  return `${datePart} at ${timePart}`;
+}
+
+function renderBackupIndicator() {
+  const el = document.getElementById('backupIndicator');
+  if (!el) return;
+  if (!S.lastBackup) {
+    el.textContent = 'Never backed up';
+    el.classList.add('stale');
+    return;
+  }
+  el.textContent = 'Last backed up: ' + formatBackupTime(S.lastBackup);
+  // Flag as stale if more than 14 days since last backup
+  const daysSince = (Date.now() - new Date(S.lastBackup).getTime()) / (1000*60*60*24);
+  el.classList.toggle('stale', daysSince > 14);
+}
+
+// ── Date helpers ───────────────────────────────────────────────
+function isoMonday() {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  d.setHours(0,0,0,0);
+  return d.toISOString().split('T')[0];
+}
+
+function addDays(isoDate, n) {
+  const d = new Date(isoDate + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function fmt(d) {
+  return d.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+}
+
+function isoDate(d) {
+  // Use local date parts to avoid UTC timezone shift (important for NZ +12)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function isToday(d) {
+  const t = new Date();
+  return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear();
+}
+
+// ── Category colours ───────────────────────────────────────────
+function catCol(name) {
+  const i = S.categories.indexOf(name);
+  return i >= 0 ? CAT_COLORS[i % CAT_COLORS.length] : null;
+}
+
+function badgeStyle(name) {
+  const c = catCol(name);
+  return c ? `background:${c.bg};border:1px solid ${c.border};color:${c.text};` : '';
+}
+
+// ── Last planned ───────────────────────────────────────────────
+function recalcLastPlanned() {
+  S.recipes.forEach(r => r.lastPlanned = null);
+  Object.entries(S.plan).forEach(([key, recipe]) => {
+    if (!recipe) return;
+    // Key is now "YYYY-MM-DD__Meal"
+    const d = key.split('__')[0];
+    if (!d || d.length !== 10) return; // skip any old-format keys
+    const r = S.recipes.find(x => x.id === recipe.id);
+    if (r && (!r.lastPlanned || r.lastPlanned < d)) r.lastPlanned = d;
+  });
+}
+
+function lastPlannedLabel(r) {
+  if (!r.lastPlanned) return 'Not yet planned';
+  const d = new Date(r.lastPlanned + 'T00:00:00');
+  return 'Last: ' + d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+}
+
+// ── Week grid ──────────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = '';
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for (let di = 0; di < 7; di++) {
+    const dayD = addDays(S.weekStart, di);
+    const day = DAY_NAMES[dayD.getDay()]; // actual day name from the date
+    const col = document.createElement('div');
+    col.className = 'day-col';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'day-header' + (isToday(dayD) ? ' today' : '');
+    hdr.innerHTML = `<div class="day-name">${day}</div><div class="day-date">${fmt(dayD)}</div>`;
+    col.appendChild(hdr);
+
+    MEALS.forEach(meal => {
+      const dateStr = isoDate(dayD);
+      const key = `${dateStr}__${meal}`;
+      const r = S.plan[key];
+      const slot = document.createElement('div');
+      slot.className = 'slot' + (r ? ' filled' : '');
+      slot.dataset.key = key;
+
+      if (r) {
+        if (r._isNote) {
+          // Note card in slot
+          slot.classList.add('note-filled');
+          slot.innerHTML = `
+            <div class="slot-note-inner">
+              <div class="slot-note-icon">📝</div>
+              <div class="slot-note-text">${r._noteText}</div>
+            </div>
+            <button class="slot-remove" data-key="${key}" title="Remove">✕</button>`;
+          slot.draggable = true;
+          slot.dataset.rid = 0;
+        } else {
+          const slotCats = r.categories || (r.category ? [r.category] : []);
+          const bs = slotCats.length ? badgeStyle(slotCats[0]) : '';
+          const badge = slotCats.length ? `<span class="slot-badge" style="${bs}">${slotCats.join(', ')}</span>` : '';
+          slot.innerHTML = `
+            <div class="slot-inner">
+              <img class="slot-img" src="${r.img}" alt="${r.name}" draggable="false" onerror="this.src='${FALLBACK}'"/>
+              <div class="slot-body">
+                <div class="slot-name">${r.name}</div>
+                <div class="slot-badge-wrap">${badge}</div>
+              </div>
+            </div>
+            ${r.url ? `<a class="slot-link" href="${r.url}" title="Open recipe" target="_blank" rel="noopener">↗</a>` : ''}
+            <button class="slot-remove" data-key="${key}" title="Remove">✕</button>`;
+          slot.draggable = true;
+          slot.dataset.rid = r.id;
+        }
+        slot.addEventListener('dragstart', () => {
+          dragData = {rid: r.id, fromKey: key};
+          setTimeout(() => slot.classList.add('dragging'), 0);
+        });
+        slot.addEventListener('dragend', () => { slot.classList.remove('dragging'); dragData = null; });
+      } else {
+        slot.innerHTML = `<div class="slot-spacer"></div><div class="slot-empty-body"><div class="slot-empty-label">${meal}<br><span style="font-size:9px;opacity:.6">drop here</span></div></div>`;
+      }
+
+      slot.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = (e.shiftKey || e.ctrlKey || e.metaKey) ? 'copy' : 'move';
+        slot.classList.add('drag-over');
+      });
+      slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+      slot.addEventListener('drop', e => {
+        e.preventDefault(); slot.classList.remove('drag-over');
+        if (!dragData) return;
+        // Hold Shift to copy — leave the source slot intact
+        const isCopy = e.shiftKey || e.ctrlKey || e.metaKey;
+        if (dragData.fromKey && !isCopy) delete S.plan[dragData.fromKey];
+        if (dragData.noteId) {
+          const nc = (S.noteCards || []).find(x => x.id === dragData.noteId);
+          if (nc) { S.plan[key] = { _isNote: true, _noteId: nc.id, _noteText: nc.text }; save(); renderGrid(); }
+        } else {
+          const rec = S.recipes.find(x => x.id === dragData.rid);
+          if (rec) { S.plan[key] = {...rec}; recalcLastPlanned(); save(); renderGrid(); renderShelf(); refreshShoppingList(); }
+        }
+      });
+
+      col.appendChild(slot);
+    });
+
+    grid.appendChild(col);
+  }
+
+  // Remove buttons
+  grid.querySelectorAll('.slot-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      delete S.plan[btn.dataset.key];
+      recalcLastPlanned(); save(); renderGrid(); renderShelf(); refreshShoppingList();
+    });
+  });
+}
+
+// ── Filter pills ───────────────────────────────────────────────
+function renderPills() {
+  // Meal type pills
+  const mtWrap = document.getElementById('mtFilterPills');
+  if (mtWrap) {
+    mtWrap.innerHTML = '';
+    ['Breakfast','Lunch','Dinner'].forEach(mt => {
+      const p = document.createElement('span');
+      const active = activeFilters.mealTypes.includes(mt);
+      p.className = 'pill' + (active ? ' active' : '');
+      p.textContent = mt;
+      p.addEventListener('click', () => {
+        if (active) activeFilters.mealTypes = activeFilters.mealTypes.filter(x => x !== mt);
+        else activeFilters.mealTypes.push(mt);
+        renderPills(); renderShelf();
+      });
+      mtWrap.appendChild(p);
+    });
+  }
+  // Category pills
+  const catWrap = document.getElementById('catFilterPills');
+  if (catWrap) {
+    catWrap.innerHTML = '';
+    S.categories.forEach((cat, i) => {
+      const p = document.createElement('span');
+      const active = activeFilters.cats.includes(cat);
+      const col = active ? CAT_COLORS[i % CAT_COLORS.length] : null;
+      p.className = 'pill' + (active ? ' active' : '');
+      if (col) p.style.cssText = `background:${col.bg};border-color:${col.border};color:${col.text};`;
+      p.textContent = cat;
+      p.addEventListener('click', () => {
+        if (active) activeFilters.cats = activeFilters.cats.filter(x => x !== cat);
+        else activeFilters.cats.push(cat);
+        renderPills(); renderShelf();
+      });
+      catWrap.appendChild(p);
+    });
+  }
+}
+
+// ── Recipe shelf ───────────────────────────────────────────────
+function applyFiltersAndSort(recipes) {
+  let list = [...recipes];
+  // Search
+  if (shelfSearch) {
+    const q = shelfSearch.toLowerCase();
+    list = list.filter(r => r.name.toLowerCase().includes(q));
+  }
+  // Meal type filter (AND — must match all selected)
+  if (activeFilters.mealTypes.length) {
+    list = list.filter(r => activeFilters.mealTypes.every(mt => (r.mealTypes||[]).includes(mt)));
+  }
+  // Category filter (AND — must have all selected categories)
+  if (activeFilters.cats.length) {
+    list = list.filter(r => activeFilters.cats.every(cat => (r.categories||[r.category]||[]).includes(cat)));
+  }
+  // Sort
+  if (shelfSort === 'name') {
+    list.sort((a,b) => a.name.localeCompare(b.name));
+  } else if (shelfSort === 'recent') {
+    list.sort((a,b) => {
+      if (!a.lastPlanned && !b.lastPlanned) return a.name.localeCompare(b.name);
+      if (!a.lastPlanned) return 1;
+      if (!b.lastPlanned) return -1;
+      return b.lastPlanned.localeCompare(a.lastPlanned);
+    });
+  } else if (shelfSort === 'unplanned') {
+    list.sort((a,b) => {
+      if (!a.lastPlanned && !b.lastPlanned) return a.name.localeCompare(b.name);
+      if (!a.lastPlanned) return -1;
+      if (!b.lastPlanned) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  return list;
+}
+
+function renderShelf() {
+  const shelf = document.getElementById('recipeShelf');
+  shelf.innerHTML = '';
+  shelf.className = 'recipe-shelf' + (shelfView === 'list' ? ' list-view' : '');
+
+  const list = applyFiltersAndSort(S.recipes);
+
+  // Results count
+  const countEl = document.getElementById('resultsCount');
+  if (countEl) {
+    const total = S.recipes.length;
+    countEl.textContent = list.length < total ? `${list.length} of ${total} recipes` : `${total} recipes`;
+  }
+  const hasFilters = activeFilters.cats.length || activeFilters.mealTypes.length || shelfSearch;
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  if (clearBtn) clearBtn.style.display = hasFilters ? 'inline-block' : 'none';
+
+  list.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'recipe-card';
+    card.draggable = true;
+
+    // Support both old single category and new multi-categories array
+    const cats = r.categories || (r.category ? [r.category] : []);
+    const catTags = cats.map(c => {
+      const cs = badgeStyle(c); 
+      return `<span class="card-tag" style="${cs}">${c}</span>`;
+    }).join('');
+    const mtTags = (r.mealTypes||[]).map(m => `<span class="card-tag">${m}</span>`).join('');
+
+    card.innerHTML = `
+      <img src="${r.img}" alt="${r.name}" onerror="this.src='${FALLBACK}'" draggable="false"/>
+      <div class="card-body">
+        <div class="card-name">${r.name}</div>
+        <div class="card-last">${lastPlannedLabel(r)}</div>
+        <div class="card-tags">${catTags}${mtTags}</div>
+      </div>
+      ${r.url ? `<a class="card-btn card-link" href="${r.url}" title="Open recipe" target="_blank" rel="noopener">↗</a>` : ''}
+      <button class="card-btn card-edit" data-id="${r.id}" title="Edit">✎</button>
+      <button class="card-btn card-del" data-id="${r.id}" title="Delete">✕</button>`;
+
+    card.addEventListener('dragstart', () => {
+      dragData = {rid: r.id, fromKey: null};
+      setTimeout(() => card.classList.add('dragging'), 0);
+    });
+    card.addEventListener('dragend', () => { card.classList.remove('dragging'); dragData = null; });
+
+    card.querySelector('.card-del').addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm(`Remove "${r.name}" from your recipe library?`)) return;
+      S.recipes = S.recipes.filter(x => x.id !== r.id);
+      Object.keys(S.plan).forEach(k => { if (S.plan[k]?.id === r.id) delete S.plan[k]; });
+      recalcLastPlanned(); save(); renderGrid(); renderShelf(); refreshShoppingList();
+    });
+
+    card.querySelector('.card-edit').addEventListener('click', e => { e.stopPropagation(); openEdit(r.id); });
+
+    shelf.appendChild(card);
+  });
+}
+
+// ── Recipe form ────────────────────────────────────────────────
+function renderCatChecks(selected = []) {
+  const wrap = document.getElementById('rCatChecks');
+  if (!wrap) return;
+  wrap.innerHTML = S.categories.map((c, i) => {
+    const col = CAT_COLORS[i % CAT_COLORS.length];
+    const sel = selected.includes(c);
+    const style = sel ? `background:${col.bg};border-color:${col.border};color:${col.text};` : '';
+    return `<label class="cat-check-pill${sel?' selected':''}" style="${style}">
+      <input type="checkbox" value="${c}"${sel?' checked':''}/>
+      ${c}
+    </label>`;
+  }).join('');
+  // Click handler to toggle styles
+  wrap.querySelectorAll('.cat-check-pill').forEach((label, i) => {
+    const cb = label.querySelector('input');
+    cb.addEventListener('change', () => {
+      const col = CAT_COLORS[i % CAT_COLORS.length];
+      if (cb.checked) {
+        label.classList.add('selected');
+        label.style.cssText = `background:${col.bg};border-color:${col.border};color:${col.text};`;
+      } else {
+        label.classList.remove('selected');
+        label.style.cssText = '';
+      }
+    });
+  });
+}
+
+function getSelectedCats() {
+  return Array.from(document.querySelectorAll('#rCatChecks input:checked')).map(i => i.value);
+}
+
+// Keep old name as alias for any remaining references
+function renderCatSelect() { renderCatChecks([]); }
+
+function renderMtChecks(selected = []) {
+  document.getElementById('mtChecks').innerHTML = MEALS.map(m =>
+    `<label class="mt-check"><input type="checkbox" value="${m}"${selected.includes(m)?' checked':''}/>${m}</label>`
+  ).join('');
+}
+
+function getSelectedMt() {
+  return Array.from(document.querySelectorAll('#mtChecks input:checked')).map(i => i.value);
+}
+
+function convertImgUrl(url) {
+  if (!url) return url;
+  // Google Drive share link: https://drive.google.com/file/d/FILE_ID/view...
+  const driveShare = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveShare) return `https://lh3.googleusercontent.com/d/${driveShare[1]}`;
+  // Google Drive uc export link: https://drive.google.com/uc?...id=FILE_ID
+  const driveUc = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+  if (driveUc) return `https://lh3.googleusercontent.com/d/${driveUc[1]}`;
+  // Already a lh3 link — leave as-is
+  return url;
+}
+
+function updateImgPreview(url) {
+  const converted = convertImgUrl(url);
+  const wrap = document.getElementById('imgPreview');
+  if (converted) {
+    wrap.innerHTML = `<img src="${converted}" onerror="this.parentElement.innerHTML='🍽'"/>`;
+  } else {
+    wrap.innerHTML = '🍽';
+  }
+}
+
+function openEdit(id) {
+  editingId = id;
+  const r = S.recipes.find(x => x.id === id);
+  document.getElementById('panelTitle').textContent = 'Edit recipe';
+  document.getElementById('rName').value = r.name;
+  document.getElementById('rImg').value = r.img === FALLBACK ? '' : r.img;
+  document.getElementById('rUrl').value = r.url || '';
+  const currentCats = r.categories || (r.category ? [r.category] : []);
+  renderCatChecks(currentCats);
+  renderMtChecks(r.mealTypes || []);
+  updateImgPreview(r.img);
+  editIngredients = [...(r.ingredients || [])];
+  renderIngList();
+  document.getElementById('addPanel').style.display = 'block';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  document.getElementById('saveRecipeBtn').textContent = 'Update recipe';
+}
+
+
+// ── Ingredient editor ──────────────────────────────────────────
+function renderIngList() {
+  const wrap = document.getElementById('ingList');
+  if (!wrap) return;
+  wrap.innerHTML = editIngredients.map((ing, i) => `
+    <div class="ing-row">
+      <span>${ing}</span>
+      <button onclick="removeIng(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removeIng(i) {
+  editIngredients.splice(i, 1);
+  renderIngList();
+}
+
+function addIng() {
+  const inp = document.getElementById('ingInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  // Allow comma-separated entries
+  val.split(',').map(s => s.trim()).filter(Boolean).forEach(s => editIngredients.push(s));
+  inp.value = '';
+  renderIngList();
+}
+
+// ── Shopping list generator ────────────────────────────────────
+// Parse an ingredient string into { qty, unit, name }
+// e.g. "2 chicken breasts" -> { qty:2, unit:'', name:'chicken breasts' }
+// e.g. "400g canned tomatoes" -> { qty:400, unit:'g', name:'canned tomatoes' }
+// e.g. "Salt and pepper" -> { qty:0, unit:'', name:'salt and pepper' }
+// Known measurement units — anything else after a number is part of the ingredient name
+const KNOWN_UNITS = new Set([
+  'g','kg','ml','l','lb','oz','tsp','tbsp','cup','cups','pinch',
+  'clove','cloves','slice','slices','piece','pieces','rasher','rashers',
+  'fillet','fillets','bunch','head','heads','can','cans','tin','tins',
+  'stick','sticks','sprig','sprigs','sheet','sheets','drop','drops'
+]);
+
+function parseIngredient(raw) {
+  const s = raw.trim();
+  // Match leading number (int, decimal, or fraction like 1/2)
+  const numMatch = s.match(/^(\d+\/\d+|\d+\.?\d*)\s*/);
+  if (numMatch) {
+    const qty = eval(numMatch[1]);
+    const rest = s.slice(numMatch[0].length).trim();
+    // Check if the next word is a known unit
+    const wordMatch = rest.match(/^([a-zA-Z]+)\s+(.*)/);
+    if (wordMatch && KNOWN_UNITS.has(wordMatch[1].toLowerCase())) {
+      const unit = wordMatch[1].toLowerCase();
+      const name = wordMatch[2].toLowerCase().trim();
+      return { qty, unit, name, original: s };
+    }
+    // No recognised unit — the whole rest is the ingredient name
+    return { qty, unit: '', name: rest.toLowerCase().trim(), original: s };
+  }
+  // No leading number — treat whole thing as name
+  return { qty: 0, unit: '', name: s.toLowerCase().replace(/[^a-z0-9 ]/g,'').trim(), original: s };
+}
+
+function formatQty(qty, unit, original) {
+  if (!qty) return original; // no quantity — return as-is
+  const rounded = Math.round(qty * 100) / 100;
+  return unit ? `${rounded}${unit} ` + original.replace(/^[\d.\/\s]+[a-zA-Z]{0,5}\s+/, '') 
+              : `${rounded} ` + original.replace(/^[\d.\/\s]+\s+/, '');
+}
+
+function buildShoppingList() {
+  // Collect unique recipe IDs from plan
+  // Only include recipes planned for the currently viewed week
+  const weekDates = new Set();
+  for (let di = 0; di < 7; di++) {
+    weekDates.add(isoDate(addDays(S.weekStart, di)));
+  }
+  const usedIds = new Set();
+  Object.entries(S.plan).forEach(([key, r]) => {
+    if (!r) return;
+    const d = key.split('__')[0];
+    if (weekDates.has(d)) usedIds.add(r.id);
+  });
+  if (!usedIds.size) return null;
+
+  // Map: ingredient name -> { qty, unit, original, recipes[] }
+  const merged = new Map();
+
+  usedIds.forEach(id => {
+    const r = S.recipes.find(x => x.id === id);
+    if (!r || !r.ingredients || !r.ingredients.length) return;
+    r.ingredients.forEach(raw => {
+      const parsed = parseIngredient(raw);
+      const key = parsed.name; // merge by ingredient name only, no qty
+      if (merged.has(key)) {
+        const existing = merged.get(key);
+        // Add quantities if same unit, otherwise just note the recipe
+        if (parsed.unit === existing.unit && parsed.qty && existing.qty) {
+          existing.qty += parsed.qty;
+        }
+        if (!existing.recipes.includes(r.name)) existing.recipes.push(r.name);
+      } else {
+        merged.set(key, {
+          qty: parsed.qty,
+          unit: parsed.unit,
+          original: parsed.original,
+          name: parsed.name,
+          recipes: [r.name]
+        });
+      }
+    });
+  });
+
+  if (!merged.size) return null;
+
+  return Array.from(merged.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, val]) => {
+      // Ingredient name — capitalise first letter
+      const ingName = val.name.charAt(0).toUpperCase() + val.name.slice(1);
+      // Quantity string — e.g. "3 cloves" or "400g" or "" if none
+      let qtyStr = '';
+      if (val.qty) {
+        const rounded = Math.round(val.qty * 100) / 100;
+        // Strip qty from front of original to get the unit+descriptor
+        const descriptor = val.original.replace(/^[\d.\/]+\s*[a-zA-Z]{0,5}\s+/, '').replace(/^[\d.\/]+\s+/, '');
+        qtyStr = val.unit ? `${rounded}${val.unit}` : `${rounded} ${descriptor.split(' ').slice(1).join(' ')||''}`.trim();
+        // Fallback: if descriptor gives us nothing useful, use original units
+        if (!qtyStr.trim() || qtyStr === rounded.toString()) {
+          const afterNum = val.original.replace(/^[\d.\/\s]+/, '').trim();
+          qtyStr = `${rounded} ${afterNum.split(' ')[0]}`.trim();
+        }
+      } else {
+        // No quantity — just show the full original as the descriptor
+        qtyStr = '';
+      }
+      return { key, ingName, qtyStr, recipes: val.recipes };
+    });
+}
+
+function renderShoppingList() {
+  const panel = document.getElementById('slPanel');
+  const body  = document.getElementById('slBody');
+  const meta  = document.getElementById('slMeta');
+  const items = buildShoppingList();
+
+  if (!items) {
+    body.innerHTML = '<p class="sl-empty">No meals planned yet — drag some recipes onto the week to get started.</p>';
+    meta.textContent = '';
+    panel.style.display = 'block';
+    return;
+  }
+
+  // Clear stale checked keys that no longer appear
+  const validKeys = new Set(items.map(i => i.key));
+  Object.keys(S.shoppingChecked).forEach(k => { if (!validKeys.has(k)) delete S.shoppingChecked[k]; });
+
+  const checkedCount = items.filter(i => S.shoppingChecked[i.key]).length;
+  meta.textContent = `${checkedCount} of ${items.length} items checked`;
+
+  // Group A–Z by first letter
+  const groups = {};
+  items.forEach(item => {
+    const letter = item.ingName[0].toUpperCase();
+    if (!groups[letter]) groups[letter] = [];
+    groups[letter].push(item);
+  });
+
+  body.innerHTML = Object.keys(groups).sort().map(letter => `
+    <div class="sl-group">
+      <div class="sl-group-title">${letter}</div>
+      ${groups[letter].map(item => `
+        <div class="sl-item${S.shoppingChecked[item.key] ? ' checked' : ''}" data-key="${item.key}">
+          <input type="checkbox" ${S.shoppingChecked[item.key] ? 'checked' : ''}/>
+          <span class="sl-item-label">
+            <span class="sl-ing-name">${item.ingName}</span>${item.qtyStr ? ` <span class="sl-ing-dash">—</span> <span class="sl-ing-qty">${item.qtyStr}</span>` : ''}
+          </span>
+          <span class="sl-item-recipes">${item.recipes.join(', ')}</span>
+        </div>`).join('')}
+    </div>`).join('');
+
+  // Progress bar
+  const pct = items.length ? Math.round(checkedCount / items.length * 100) : 0;
+  body.innerHTML += `
+    <div class="sl-progress">
+      <span>${checkedCount} of ${items.length} items in the pantry (${pct}%)</span>
+      <div class="sl-progress-bar"><div class="sl-progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+
+  // Checkbox events
+  body.querySelectorAll('.sl-item').forEach(row => {
+    const key = row.dataset.key;
+    const cb  = row.querySelector('input[type=checkbox]');
+    const toggle = () => {
+      S.shoppingChecked[key] = !S.shoppingChecked[key];
+      save();
+      renderShoppingList();
+    };
+    cb.addEventListener('change', toggle);
+    row.addEventListener('click', e => { if (e.target !== cb) toggle(); });
+  });
+
+  panel.style.display = 'block';
+}
+
+
+function refreshShoppingList() {
+  if (slOpen) renderShoppingList();
+}
+
+function resetForm() {
+  editingId = null;
+  document.getElementById('panelTitle').textContent = 'New recipe';
+  document.getElementById('rName').value = '';
+  document.getElementById('rImg').value = '';
+  editIngredients = [];
+  renderIngList();
+  renderCatChecks([]);
+  renderMtChecks([]);
+  updateImgPreview('');
+  document.getElementById('rUrl').value = '';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('saveRecipeBtn').textContent = 'Save recipe';
+}
+
+// ── Categories panel ───────────────────────────────────────────
+function renderCatChips() {
+  const wrap = document.getElementById('catChips');
+  wrap.innerHTML = S.categories.map((c, i) => {
+    const col = CAT_COLORS[i % CAT_COLORS.length];
+    return `<span class="cat-chip" style="background:${col.bg};border:1px solid ${col.border};color:${col.text};">
+      ${c}<button class="cat-chip-del" data-cat="${c}" style="color:${col.text};">✕</button>
+    </span>`;
+  }).join('');
+  wrap.querySelectorAll('.cat-chip-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.cat;
+      if (!confirm(`Remove category "${cat}"? Recipes in this category will become uncategorised.`)) return;
+      S.categories = S.categories.filter(c => c !== cat);
+      S.recipes.forEach(r => { if (r.category === cat) r.category = ''; });
+      if (activeFilter === cat) activeFilter = 'All';
+      save(); renderCatChips(); renderPills(); renderShelf(); renderCatChecks([]);
+    });
+  });
+}
+
+// ── Event listeners ────────────────────────────────────────────
+document.getElementById('weekJumpPrev').addEventListener('click', () => {
+  const d = new Date(S.weekStart + 'T00:00:00');
+  d.setDate(d.getDate() - 7);
+  S.weekStart = isoDate(d);
+  document.getElementById('weekStart').value = S.weekStart;
+  recalcLastPlanned(); save(); renderGrid(); refreshShoppingList();
+});
+
+document.getElementById('weekJumpNext').addEventListener('click', () => {
+  const d = new Date(S.weekStart + 'T00:00:00');
+  d.setDate(d.getDate() + 7);
+  S.weekStart = isoDate(d);
+  document.getElementById('weekStart').value = S.weekStart;
+  recalcLastPlanned(); save(); renderGrid(); refreshShoppingList();
+});
+
+document.getElementById('weekPrev').addEventListener('click', () => {
+  const d = new Date(S.weekStart + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  S.weekStart = isoDate(d);
+  document.getElementById('weekStart').value = S.weekStart;
+  recalcLastPlanned(); save(); renderGrid(); refreshShoppingList();
+});
+
+document.getElementById('weekNext').addEventListener('click', () => {
+  const d = new Date(S.weekStart + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  S.weekStart = isoDate(d);
+  document.getElementById('weekStart').value = S.weekStart;
+  recalcLastPlanned(); save(); renderGrid(); refreshShoppingList();
+});
+
+document.getElementById('weekStart').addEventListener('change', e => {
+  S.weekStart = e.target.value;
+  recalcLastPlanned(); save(); renderGrid();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!Object.keys(S.plan).length) return;
+  if (!confirm('Clear all meals from this week?')) return;
+  Object.keys(S.plan).forEach(k => delete S.plan[k]);
+  recalcLastPlanned(); save(); renderGrid(); renderShelf(); refreshShoppingList();
+});
+
+document.getElementById('toggleAdd').addEventListener('click', () => {
+  const p = document.getElementById('addPanel');
+  if (p.style.display === 'none') { resetForm(); renderCatSelect(); p.style.display = 'block'; }
+  else { p.style.display = 'none'; resetForm(); }
+});
+
+document.getElementById('toggleCats').addEventListener('click', () => {
+  const p = document.getElementById('catPanel');
+  if (p.style.display === 'none') { renderCatChips(); p.style.display = 'block'; }
+  else p.style.display = 'none';
+});
+
+document.getElementById('rImg').addEventListener('input', e => {
+  const raw = e.target.value.trim();
+  const converted = convertImgUrl(raw);
+  // If the URL was converted, update the field so the stored value is already clean
+  if (converted && converted !== raw) e.target.value = converted;
+  updateImgPreview(converted);
+});
+
+document.getElementById('saveRecipeBtn').addEventListener('click', () => {
+  const name = document.getElementById('rName').value.trim();
+  if (!name) { alert('Please enter a recipe name.'); return; }
+  const img = convertImgUrl(document.getElementById('rImg').value.trim()) || FALLBACK;
+  const url = document.getElementById('rUrl').value.trim();
+  // category now derived from multi-select below
+  const mealTypes = getSelectedMt();
+
+  const ingredients = [...editIngredients];
+  const categories = getSelectedCats();
+  const category = categories[0] || ''; // keep legacy field for compatibility
+  if (editingId) {
+    const r = S.recipes.find(x => x.id === editingId);
+    if (r) {
+      Object.assign(r, {name, img, url, category, categories, mealTypes, ingredients});
+      Object.keys(S.plan).forEach(k => { if (S.plan[k]?.id === editingId) Object.assign(S.plan[k], {name, img, category, categories, mealTypes, ingredients}); });
+    }
+  } else {
+    S.recipes.push({id: S.nextId++, name, img, url, category, categories, mealTypes, ingredients, lastPlanned: null});
+  }
+
+  save(); resetForm();
+  document.getElementById('addPanel').style.display = 'none';
+  renderGrid(); renderShelf(); renderPills(); refreshShoppingList();
+});
+
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+  resetForm(); document.getElementById('addPanel').style.display = 'none';
+});
+
+document.getElementById('addCatBtn').addEventListener('click', () => {
+  const name = document.getElementById('catName').value.trim();
+  if (!name) return;
+  if (S.categories.includes(name)) { alert(`"${name}" already exists.`); return; }
+  S.categories.push(name);
+  document.getElementById('catName').value = '';
+  save(); renderCatChips(); renderPills(); renderCatChecks([]);
+});
+
+document.getElementById('catName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('addCatBtn').click();
+});
+
+// ── Export / Import ────────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click', () => {
+  S.lastBackup = new Date().toISOString();
+  const filename = 'meal-planner-backup-' + new Date().toISOString().split('T')[0] + '.json';
+  const blob = new Blob([JSON.stringify(S, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  save();
+  setStatus('Exported ' + filename);
+  renderBackupIndicator();
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').value = '';
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const parsed = JSON.parse(evt.target.result);
+      if (!parsed || !Array.isArray(parsed.recipes)) {
+        alert('This file doesn\'t look like a Meal Planner backup. Please choose a valid export file.');
+        return;
+      }
+      if (!confirm(`Import data from "${file.name}"? This will replace your current recipes, categories, and meal plan.`)) return;
+      S = parsed;
+      recalcLastPlanned();
+      save();
+      activeFilter = 'All';
+      document.getElementById('weekStart').value = S.weekStart;
+      renderGrid(); renderPills(); renderShelf(); renderCatSelect(); renderMtChecks([]);
+      setStatus('Imported from ' + file.name + ' ✓');
+      renderBackupIndicator();
+    } catch(err) {
+      alert('Could not read that file. Make sure it\'s a valid Meal Planner export.');
+    }
+  };
+  reader.readAsText(file);
+});
+
+
+// ── History events ────────────────────────────────────────────
+document.getElementById('historyBtn').addEventListener('click', () => {
+  historyOpen = !historyOpen;
+  const panel = document.getElementById('historyPanel');
+  if (historyOpen) {
+    renderHistory();
+    panel.style.display = 'block';
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    panel.style.display = 'none';
+  }
+});
+
+document.getElementById('historyClose').addEventListener('click', () => {
+  historyOpen = false;
+  document.getElementById('historyPanel').style.display = 'none';
+});
+
+// ── Shopping list events ──────────────────────────────────────
+document.getElementById('shoppingBtn').addEventListener('click', () => {
+  slOpen = !slOpen;
+  if (slOpen) {
+    renderShoppingList();
+    document.getElementById('slPanel').scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    document.getElementById('slPanel').style.display = 'none';
+  }
+});
+
+document.getElementById('slClose').addEventListener('click', () => {
+  slOpen = false;
+  document.getElementById('slPanel').style.display = 'none';
+});
+
+document.getElementById('slUncheckAll').addEventListener('click', () => {
+  S.shoppingChecked = {};
+  save();
+  renderShoppingList();
+});
+
+document.getElementById('slPrint').addEventListener('click', () => {
+  // Inject portrait @page rule
+  let ps = document.getElementById('_printStyle');
+  if (!ps) { ps = document.createElement('style'); ps.id = '_printStyle'; document.head.appendChild(ps); }
+  ps.textContent = '@media print { @page { size: A4 portrait; margin: 15mm; } }';
+  document.body.classList.remove('print-week');
+  document.body.classList.add('print-list');
+  window.print();
+  setTimeout(() => { document.body.classList.remove('print-list'); ps.textContent = ''; }, 1000);
+});
+
+// Search
+// Clear filters button
+document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+  activeFilters = { cats: [], mealTypes: [] };
+  shelfSearch = '';
+  document.getElementById('shelfSearch').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  renderPills();
+  renderShelf();
+});
+
+document.getElementById('shelfSearch').addEventListener('input', e => {
+  shelfSearch = e.target.value.trim();
+  document.getElementById('searchClear').style.display = shelfSearch ? 'block' : 'none';
+  renderShelf();
+});
+
+document.getElementById('searchClear').addEventListener('click', () => {
+  shelfSearch = '';
+  document.getElementById('shelfSearch').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  renderShelf();
+});
+
+// Sort
+document.getElementById('sortSelect').addEventListener('change', e => {
+  shelfSort = e.target.value;
+  renderShelf();
+});
+
+// View toggle
+document.getElementById('viewGrid').addEventListener('click', () => {
+  shelfView = 'grid';
+  document.getElementById('viewGrid').classList.add('active');
+  document.getElementById('viewList').classList.remove('active');
+  renderShelf();
+});
+document.getElementById('viewList').addEventListener('click', () => {
+  shelfView = 'list';
+  document.getElementById('viewList').classList.add('active');
+  document.getElementById('viewGrid').classList.remove('active');
+  renderShelf();
+});
+
+document.getElementById('noteAddBtn').addEventListener('click', addNoteCard);
+document.getElementById('noteInput').addEventListener('keydown', e => { if (e.key === 'Enter') addNoteCard(); });
+document.getElementById('ingAddBtn').addEventListener('click', addIng);
+document.getElementById('ingInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addIng();
+});
+
+// ── Print ─────────────────────────────────────────────────────
+document.getElementById('printBtn').addEventListener('click', () => {
+  const start = addDays(S.weekStart, 0);
+  const end   = addDays(S.weekStart, 6);
+  document.getElementById('printWeekLabel').textContent =
+    'Week of ' + fmt(start) + ' – ' + fmt(end);
+  // Inject landscape @page rule
+  let ps = document.getElementById('_printStyle');
+  if (!ps) { ps = document.createElement('style'); ps.id = '_printStyle'; document.head.appendChild(ps); }
+  ps.textContent = '@media print { @page { size: A4 landscape; margin: 10mm; } }';
+  document.body.classList.remove('print-list');
+  document.body.classList.add('print-week');
+  window.print();
+  setTimeout(() => { document.body.classList.remove('print-week'); ps.textContent = ''; }, 1000);
+});
+
+
+// ── Meal History ───────────────────────────────────────────────
+let historyOpen = false;
+
+function renderHistory() {
+  const body = document.getElementById('historyBody');
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const SHORT_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  // Collect all unique week-start dates from the plan (date-based keys)
+  const weekStarts = new Set();
+  Object.keys(S.plan).forEach(key => {
+    const d = key.split('__')[0];
+    if (!d || d.length !== 10) return;
+    // Find the Monday (or week start) for this date
+    const date = new Date(d + 'T00:00:00');
+    const diff = date.getDay() === 0 ? -6 : 1 - date.getDay();
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() + diff);
+    weekStarts.add(isoDate(weekStart));
+  });
+
+  if (!weekStarts.size) {
+    body.innerHTML = '<p class="history-empty">No meal history yet — your planned weeks will appear here.</p>';
+    return;
+  }
+
+  // Sort weeks newest first
+  const sorted = Array.from(weekStarts).sort((a,b) => b.localeCompare(a));
+
+  body.innerHTML = sorted.map(ws => {
+    // Build 7 dates for this week
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      dates.push(isoDate(addDays(ws, i)));
+    }
+    const weekEnd = dates[6];
+    const label = `Week of ${fmt(new Date(ws+'T00:00:00'))} – ${fmt(new Date(weekEnd+'T00:00:00'))}`;
+    const weekNote = '';
+
+    // Day headers
+    const dayHeaders = dates.map(d => {
+      const dayD = new Date(d+'T00:00:00');
+      return `<div class="hg-day">${SHORT_DAYS[dayD.getDay()]}<br><span style="font-weight:400;color:var(--text3)">${fmt(dayD)}</span></div>`;
+    }).join('');
+
+    // Meal rows
+    const mealRows = MEALS.map(meal => {
+      const cells = dates.map(d => {
+        const key = `${d}__${meal}`;
+        const r = S.plan[key];
+        if (r) {
+          const linkAttr = r.url ? `href="${r.url}" target="_blank" rel="noopener"` : '';
+          const tag = r.url ? 'a' : 'div';
+          return `<${tag} class="hg-cell filled" ${linkAttr} style="${r.url?'text-decoration:none;cursor:pointer;':''}" title="${r.name}">
+            <img src="${r.img}" onerror="this.style.display='none'" draggable="false"/>
+            <div class="hg-cell-name">${r.name}</div>
+          </${tag}>`;
+        }
+        return `<div class="hg-cell empty"></div>`;
+      }).join('');
+      return `<div class="hg-meal-label">${meal}</div>${cells}`;
+    }).join('');
+
+    const panelId = `hw-${ws.replace(/-/g,'')}`;
+    return `<div class="history-week">
+      <div class="history-week-header" onclick="toggleHistoryWeek('${panelId}')">
+        ${label}${weekNote}
+        <span class="history-toggle" id="${panelId}-toggle">▼ Show</span>
+      </div>
+      <div class="history-week-body" id="${panelId}">
+        <div class="history-grid">
+          <div class="hg-corner"></div>${dayHeaders}
+          ${mealRows}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleHistoryWeek(id) {
+  const body = document.getElementById(id);
+  const toggle = document.getElementById(id + '-toggle');
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (toggle) toggle.textContent = open ? '▲ Hide' : '▼ Show';
+}
+
+
+// ── Note cards ────────────────────────────────────────────────
+let noteNextId = 1;
+
+function renderNoteShelf() {
+  const shelf = document.getElementById('noteShelf');
+  if (!shelf) return;
+  shelf.innerHTML = '';
+  (S.noteCards || []).forEach(nc => {
+    const card = document.createElement('div');
+    card.className = 'note-card';
+    card.draggable = true;
+    card.dataset.noteId = nc.id;
+    card.innerHTML = `
+      <div class="note-card-text">${nc.text}</div>
+      <button class="note-card-del" title="Delete note" data-id="${nc.id}">✕</button>`;
+    card.addEventListener('dragstart', () => {
+      dragData = { noteId: nc.id, fromKey: null };
+      setTimeout(() => card.classList.add('dragging'), 0);
+    });
+    card.addEventListener('dragend', () => { card.classList.remove('dragging'); dragData = null; });
+    card.querySelector('.note-card-del').addEventListener('click', e => {
+      e.stopPropagation();
+      S.noteCards = S.noteCards.filter(x => x.id !== nc.id);
+      // Remove from any slots
+      Object.keys(S.plan).forEach(k => { if (S.plan[k]?._noteId === nc.id) delete S.plan[k]; });
+      save(); renderNoteShelf(); renderGrid();
+    });
+    shelf.appendChild(card);
+  });
+}
+
+function addNoteCard() {
+  const inp = document.getElementById('noteInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  if (!S.noteCards) S.noteCards = [];
+  const id = 'note_' + Date.now();
+  S.noteCards.push({ id, text });
+  inp.value = '';
+  save(); renderNoteShelf();
+}
+
+// ── Auto-scroll during drag ───────────────────────────────────
+(function() {
+  const ZONE = 120;    // px from edge that triggers scrolling
+  const MAX_SPEED = 18; // max px per frame
+  let scrollTimer = null;
+  let currentY = 0;
+
+  function getSpeed(pos, size) {
+    // Top zone
+    if (pos < ZONE) return -MAX_SPEED * (1 - pos / ZONE);
+    // Bottom zone
+    if (pos > size - ZONE) return MAX_SPEED * (1 - (size - pos) / ZONE);
+    return 0;
+  }
+
+  function scrollStep() {
+    const speed = getSpeed(currentY, window.innerHeight);
+    if (speed !== 0) {
+      window.scrollBy(0, speed);
+      scrollTimer = requestAnimationFrame(scrollStep);
+    } else {
+      scrollTimer = null;
+    }
+  }
+
+  document.addEventListener('dragover', e => {
+    currentY = e.clientY;
+    if (!scrollTimer) scrollTimer = requestAnimationFrame(scrollStep);
+  });
+
+  document.addEventListener('dragend', () => {
+    if (scrollTimer) { cancelAnimationFrame(scrollTimer); scrollTimer = null; }
+  });
+
+  document.addEventListener('drop', () => {
+    if (scrollTimer) { cancelAnimationFrame(scrollTimer); scrollTimer = null; }
+  });
+})();
+
+// ── Init ───────────────────────────────────────────────────────
+load();
+renderBackupIndicator();
+document.getElementById('weekStart').value = S.weekStart;
+renderNoteShelf();
+recalcLastPlanned();
+renderGrid();
+renderPills();
+renderShelf();
+renderCatSelect();
+renderMtChecks([]);
+
+// ══════════════════════════════════════════════════════════════════
+// GOOGLE DRIVE INTEGRATION
+// Replace these two values with your own from Google Cloud Console
+// ══════════════════════════════════════════════════════════════════
+const DRIVE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
+const DRIVE_API_KEY   = 'AIzaSyBLvFqYWYjuZQbvcbrUavamQNiqCe26oyY';
+const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FILENAME  = 'robson-meal-planner.json';
+
+let driveTokenClient = null;
+let driveAccessToken = null;
+let driveFileId      = null;  // cached Drive file ID once found/created
+
+function driveSetStatus(msg) {
+  document.getElementById('driveStatus').textContent = msg;
+}
+
+function driveSetSignedIn(yes) {
+  document.getElementById('driveSignInBtn').style.display = yes ? 'none'    : 'inline-block';
+  document.getElementById('driveSaveBtn').style.display   = yes ? 'inline-block' : 'none';
+  document.getElementById('driveLoadBtn').style.display   = yes ? 'inline-block' : 'none';
+}
+
+// Initialise the GIS token client
+function driveInit() {
+  if (typeof google === 'undefined' || !google.accounts) {
+    setTimeout(driveInit, 500);
+    return;
+  }
+  driveTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: DRIVE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { driveSetStatus('⚠ Sign-in failed'); return; }
+      driveAccessToken = resp.access_token;
+      driveSetSignedIn(true);
+      driveSetStatus('Drive connected ✓');
+    },
+  });
+}
+
+// Find or create the save file on Drive, return its ID
+async function driveGetFileId() {
+  if (driveFileId) return driveFileId;
+  // Search for existing file
+  const q = encodeURIComponent(`name='${DRIVE_FILENAME}' and trashed=false`);
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${driveAccessToken}` } }
+  );
+  const data = await res.json();
+  if (data.files && data.files.length > 0) {
+    driveFileId = data.files[0].id;
+    return driveFileId;
+  }
+  // Create new file
+  const meta = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${driveAccessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name: DRIVE_FILENAME, mimeType: 'application/json' }),
+  });
+  const newFile = await meta.json();
+  driveFileId = newFile.id;
+  return driveFileId;
+}
+
+// Save state to Drive
+async function driveSave() {
+  if (!driveAccessToken) { driveSetStatus('⚠ Not connected'); return; }
+  driveSetStatus('Saving to Drive…');
+  try {
+    const fileId = await driveGetFileId();
+    const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: DRIVE_FILENAME })], { type: 'application/json' }));
+    form.append('file', blob);
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${driveAccessToken}` },
+      body: form,
+    });
+    S.lastBackup = new Date().toISOString();
+    save();
+    renderBackupIndicator();
+    driveSetStatus('Saved to Drive ✓ ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    driveSetStatus('⚠ Save failed: ' + e.message);
+  }
+}
+
+// Load state from Drive
+async function driveLoad() {
+  if (!driveAccessToken) { driveSetStatus('⚠ Not connected'); return; }
+  driveSetStatus('Loading from Drive…');
+  try {
+    const fileId = await driveGetFileId();
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${driveAccessToken}` } }
+    );
+    const parsed = await res.json();
+    if (!parsed || !Array.isArray(parsed.recipes)) {
+      driveSetStatus('⚠ File not recognised'); return;
+    }
+    if (!confirm('Load from Drive? This will replace your current local data.')) return;
+    S = parsed;
+    recalcLastPlanned();
+    save();
+    activeFilter = 'All';
+    activeFilters = { cats: [], mealTypes: [] };
+    document.getElementById('weekStart').value = S.weekStart;
+    renderGrid(); renderPills(); renderShelf(); renderCatChecks([]); renderMtChecks([]);
+    renderNoteShelf(); renderBackupIndicator();
+    driveSetStatus('Loaded from Drive ✓');
+  } catch(e) {
+    driveSetStatus('⚠ Load failed: ' + e.message);
+  }
+}
+
+// Button events
+document.getElementById('driveSignInBtn').addEventListener('click', () => {
+  if (!driveTokenClient) { driveSetStatus('⚠ Drive not ready yet, try again'); return; }
+  driveTokenClient.requestAccessToken();
+});
+document.getElementById('driveSaveBtn').addEventListener('click', driveSave);
+document.getElementById('driveLoadBtn').addEventListener('click', driveLoad);
+
+// Kick off init after page load
+window.addEventListener('load', driveInit);
+
+</script>
